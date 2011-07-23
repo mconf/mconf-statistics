@@ -1,0 +1,5 @@
+# Minute   Hour   Day of Month       Month          Day of Week        Command    
+# (0-59)  (0-23)     (1-31)    (1-12 or Jan-Dec)  (0-6 or Sun-Sat)
+  *       *          *         *                  *                    /home/mconf/mconf-statistics/main.py /usr/share/red5/log/bigbluebutton.log /home/mconf/mconf-statistics/data.log
+  @reboot                                                              /home/mconf/mconf-statistics/web_server.py 1234 /home/mconf/mconf-statistics/data.log
+
