@@ -4,49 +4,49 @@ import time
 
 def parse_user_join(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_USER_JOIN
+    result.__type__ = LogLineEvent.USER_JOIN
     result.__id__ = regex_match.groups("user_id")[0]
     return result
 
 def parse_user_leave(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_USER_LEAVE
+    result.__type__ = LogLineEvent.USER_LEAVE
     result.__id__ = regex_match.groups("user_id")[0]
     return result
 
 def parse_room_create(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_ROOM_CREATE
+    result.__type__ = LogLineEvent.ROOM_CREATE
     result.__id__ = regex_match.groups("room_id")[0]
     return result
 
 def parse_room_destroy(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_ROOM_DESTROY
+    result.__type__ = LogLineEvent.ROOM_DESTROY
     result.__id__ = regex_match.groups("room_id")[0]
     return result
 
 def parse_video_start(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_VIDEO_START
+    result.__type__ = LogLineEvent.VIDEO_START
     result.__id__ = regex_match.groups("user_id")[0]
     return result
 
 def parse_video_stop(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_VIDEO_STOP
+    result.__type__ = LogLineEvent.VIDEO_STOP
     result.__id__ = regex_match.groups("user_id")[0]
     return result
 
 def parse_audio_start(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_AUDIO_START
+    result.__type__ = LogLineEvent.AUDIO_START
     result.__id__ = regex_match.groups("room_id")[0]
     return result
 
 def parse_audio_stop(line, regex_match):
     result = LogLineEvent(line)
-    result.__type__ = LogLineEvent.LOG_LINE_EVENT_AUDIO_STOP
+    result.__type__ = LogLineEvent.AUDIO_STOP
     result.__id__ = regex_match.groups("room_id")[0]
     return result
  
@@ -72,14 +72,14 @@ class LogLineEvent:
     single lines of the BigBlueButton log. It contains three important
     fields: self.__type__, self.__timestamp__ and self.__id__. __type__ is one
     of:
-        LOG_LINE_EVENT_USER_JOIN
-        LOG_LINE_EVENT_USER_LEAVE
-        LOG_LINE_EVENT_AUDIO_START
-        LOG_LINE_EVENT_AUDIO_STOP
-        LOG_LINE_EVENT_VIDEO_START
-        LOG_LINE_EVENT_VIDEO_STOP
-        LOG_LINE_EVENT_ROOM_CREATE
-        LOG_LINE_EVENT_ROOM_DESTROY
+        USER_JOIN
+        USER_LEAVE
+        AUDIO_START
+        AUDIO_STOP
+        VIDEO_START
+        VIDEO_STOP
+        ROOM_CREATE
+        ROOM_DESTROY
 
     __timestamp__ contains a timestamp that identifies the event in time, and __id__
     contains an identifier for the user or room that originated the event.
@@ -97,45 +97,45 @@ class LogLineEvent:
         re.compile(".*DEBUG o.b.w.red5.voice.ClientManager - Participant \[.*,(?P<room_id>.*)\] leaving") : parse_audio_stop,
     }
 
-    LOG_LINE_EVENT_USERS        = 'users'
-    LOG_LINE_EVENT_USER_JOIN    = 'user_join'
-    LOG_LINE_EVENT_USER_LEAVE   = 'user_leave'
+    USERS        = 'users'
+    USER_JOIN    = 'user_join'
+    USER_LEAVE   = 'user_leave'
 
-    LOG_LINE_EVENT_AUDIO        = 'audio'
-    LOG_LINE_EVENT_AUDIO_START  = 'audio_start'
-    LOG_LINE_EVENT_AUDIO_STOP   = 'audio_stop'
+    AUDIO        = 'audio'
+    AUDIO_START  = 'audio_start'
+    AUDIO_STOP   = 'audio_stop'
 
-    LOG_LINE_EVENT_VIDEO        = 'video'
-    LOG_LINE_EVENT_VIDEO_START  = 'video_start'
-    LOG_LINE_EVENT_VIDEO_STOP   = 'video_stop'
+    VIDEO        = 'video'
+    VIDEO_START  = 'video_start'
+    VIDEO_STOP   = 'video_stop'
     
-    LOG_LINE_EVENT_ROOM         = 'room'
-    LOG_LINE_EVENT_ROOM_CREATE  = 'room_create'
-    LOG_LINE_EVENT_ROOM_DESTROY = 'room_destroy'
+    ROOM         = 'room'
+    ROOM_CREATE  = 'room_create'
+    ROOM_DESTROY = 'room_destroy'
 
     EventTypeMap = {
-        LOG_LINE_EVENT_USER_JOIN: LOG_LINE_EVENT_USERS,
-        LOG_LINE_EVENT_USER_LEAVE: LOG_LINE_EVENT_USERS,
+        USER_JOIN: USERS,
+        USER_LEAVE: USERS,
         
-        LOG_LINE_EVENT_AUDIO_START: LOG_LINE_EVENT_AUDIO,
-        LOG_LINE_EVENT_AUDIO_STOP: LOG_LINE_EVENT_AUDIO,
+        AUDIO_START: AUDIO,
+        AUDIO_STOP: AUDIO,
 
-        LOG_LINE_EVENT_VIDEO_START: LOG_LINE_EVENT_VIDEO,
-        LOG_LINE_EVENT_VIDEO_STOP: LOG_LINE_EVENT_VIDEO,
+        VIDEO_START: VIDEO,
+        VIDEO_STOP: VIDEO,
 
-        LOG_LINE_EVENT_ROOM_CREATE: LOG_LINE_EVENT_ROOM,
-        LOG_LINE_EVENT_ROOM_DESTROY: LOG_LINE_EVENT_ROOM
+        ROOM_CREATE: ROOM,
+        ROOM_DESTROY: ROOM
     }
 
     EventTypeNames = {
-        LOG_LINE_EVENT_USER_JOIN: 'USER_JOIN',
-        LOG_LINE_EVENT_USER_LEAVE: 'USER_LEAVE',
-        LOG_LINE_EVENT_AUDIO_START: 'AUDIO_START',
-        LOG_LINE_EVENT_AUDIO_STOP: 'AUDIO_STOP',
-        LOG_LINE_EVENT_VIDEO_START: 'VIDEO_START',
-        LOG_LINE_EVENT_VIDEO_STOP: 'VIDEO_STOP',
-        LOG_LINE_EVENT_ROOM_CREATE: 'ROOM_CREATE',
-        LOG_LINE_EVENT_ROOM_DESTROY: 'ROOM_DESTROY'
+        USER_JOIN: 'USER_JOIN',
+        USER_LEAVE: 'USER_LEAVE',
+        AUDIO_START: 'AUDIO_START',
+        AUDIO_STOP: 'AUDIO_STOP',
+        VIDEO_START: 'VIDEO_START',
+        VIDEO_STOP: 'VIDEO_STOP',
+        ROOM_CREATE: 'ROOM_CREATE',
+        ROOM_DESTROY: 'ROOM_DESTROY'
     }
     def __init__(self, line):
         tokens = line.split(" ",2)

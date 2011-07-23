@@ -74,57 +74,37 @@ class StatTable:
                 self.__data__[key]['datapoints'] =\
                     self.__data__[key]['datapoints'][len(self.__data__[key]['datapoints']) - StatTable.STAT_TABLE_SIZES[key]:]
             
-    def __append__(self, events, latest_datapoint=None):
-        curr_time = events[0].timestamp()
-        datapoint_idx = 0
+    def __append__(self, events, latest=None):
+        if not latest:
+            latest = { 'timestamp': events[0].timestamp() - 1, 'idx': -1,
+                'value': { LogLineEvent.USERS: 0, LogLineEvent.AUDIO: 0, LogLineEvent.VIDEO: 0, LogLineEvent.ROOM: 0 }}
 
-        counters = {
-            LogLineEvent.LOG_LINE_EVENT_USERS: 0,
-            LogLineEvent.LOG_LINE_EVENT_AUDIO: 0,
-            LogLineEvent.LOG_LINE_EVENT_VIDEO: 0,
-            LogLineEvent.LOG_LINE_EVENT_ROOM: 0
-        }
-
-        if latest_datapoint:
-            curr_time = latest_datapoint['timestamp'] + Constants.SECONDS_IN_MIN
-            datapoint_idx = latest_datapoint['idx'] + 1
-            counters = {
-                LogLineEvent.LOG_LINE_EVENT_USERS: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_USERS],
-                LogLineEvent.LOG_LINE_EVENT_AUDIO: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_AUDIO],
-                LogLineEvent.LOG_LINE_EVENT_VIDEO: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_VIDEO],
-                LogLineEvent.LOG_LINE_EVENT_ROOM: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_ROOM]
-            }
-
+        curr_time = latest['timestamp'] + Constants.SECONDS_IN_MIN
+        datapoint_idx = latest['idx'] + 1
+        counters = dict(latest['value'])
 
         final_time = time.time()
         events_idx = 0
 
         increments = {
-            LogLineEvent.LOG_LINE_EVENT_USER_JOIN: 1,
-            LogLineEvent.LOG_LINE_EVENT_USER_LEAVE: -1,
-            
-            LogLineEvent.LOG_LINE_EVENT_AUDIO_START: 1,
-            LogLineEvent.LOG_LINE_EVENT_AUDIO_STOP: -1,
-
-            LogLineEvent.LOG_LINE_EVENT_VIDEO_START: 1,
-            LogLineEvent.LOG_LINE_EVENT_VIDEO_STOP: -1,
-
-            LogLineEvent.LOG_LINE_EVENT_ROOM_CREATE: 1,
-            LogLineEvent.LOG_LINE_EVENT_ROOM_DESTROY: -1
+            LogLineEvent.USER_JOIN: 1, LogLineEvent.USER_LEAVE: -1, LogLineEvent.AUDIO_START: 1, LogLineEvent.AUDIO_STOP: -1,
+            LogLineEvent.VIDEO_START: 1, LogLineEvent.VIDEO_STOP: -1, LogLineEvent.ROOM_CREATE: 1, LogLineEvent.ROOM_DESTROY: -1
         }
 
         while curr_time < final_time:
-            if events_idx < len(events):
-                ## we're still within the existing events, so we check
-                ## them to update the counter
-                while events_idx < len(events) and events[events_idx].timestamp() < curr_time:
-                    event_type = LogLineEvent.EventTypeMap[events[events_idx].type()]
-                    counters[event_type] += increments[events[events_idx].type()]
-                    events_idx += 1
+            # take all events in the list whose timestamp is LESS than curr_time
+            # but MORE than latest.timestamp
+            while events_idx < len(events):
+                event = events[events_idx]
+                events_idx += 1
+                if event.timestamp() <= latest['timestamp']: continue # we saw this event already
+                if event.timestamp() >= curr_time: break # this event is for the next minute
+
+                # this event is in this minute-window, and hasnt been processed yet
+                event_type = LogLineEvent.EventTypeMap[event.type()]
+                counters[event_type] += increments[event.type()]                
 
             self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': dict(counters), 'idx': datapoint_idx})
-
-            datapoint_idx += 1
             curr_time += Constants.SECONDS_IN_MIN
 
     def __aggregate__(self):
@@ -169,15 +149,17 @@ class StatTable:
         """
         Note: we assume events is sorted by timestamp
         """
-
+        print events
         if len(self.__data__['daily']['datapoints']) == 0:
             # no data yet, so we start scanning dates from
             # the start of the events list
+            print "Initial logging"
             self.__append__(events)
         else:
             # if we already have some data in the file, we
             # start scanning from the last timestamp in the file
             latest = self.__data__['daily']['datapoints'][-1]
+            print "Appending to log"
             self.__append__(events, latest)
 
         self.__aggregate__()
