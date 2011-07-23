@@ -3,6 +3,7 @@ import os
 import json
 import datetime
 import calendar
+import sys
 
 import Constants
 from LogLineEvent import LogLineEvent
@@ -78,7 +79,7 @@ class StatTable:
             
     def __append__(self, events, latest=None):
         empty_value = { LogLineEvent.USERS: 0, LogLineEvent.AUDIO: 0, LogLineEvent.VIDEO: 0, LogLineEvent.ROOM: 0,
-                           'users': {}, 'usernames': {}, 'audio_ids': {}}
+                           'users': {}}
         if not latest:
             latest = { 'timestamp': events[0].timestamp() - 1, 'idx': -1,
                 'value': dict(empty_value) }
@@ -88,7 +89,6 @@ class StatTable:
         counters = dict(latest['value'])
 
         final_time = calendar.timegm(datetime.datetime.today().timetuple())
-        print datetime.datetime.utcfromtimestamp(final_time).ctime()
         events_idx = 0
 
         increments = {
@@ -97,6 +97,9 @@ class StatTable:
         }
 
         while curr_time < final_time:
+            
+            events_handled = []
+            
             # take all events in the list whose timestamp is LESS than curr_time
             # but MORE than latest.timestamp
             while events_idx < len(events):
@@ -109,63 +112,68 @@ class StatTable:
                     events_idx -= 1 
                     break
 
+                events_handled.append(event)
+
                 ## this event is in this minute-window, and hasn't been processed yet
                 event_type = LogLineEvent.EventTypeMap[event.type()]
 
                 ## specific event handling
                 if event.type() == LogLineEvent.USER_JOIN:
                     ## the user is joining, so we add him/her to the persistent list of users
-                    try: counters['users'][event.id()] = { 'audio': False, 'video': False }
-                    except KeyError as detail: print 'Handling exception: ', detail
+                    try: counters['users'][event.id()] = { 'audio': False, 'video': False, 'username': '', 'audio_id': 0 }
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
                     
                 elif event.type() == LogLineEvent.USER_NAME:
                     ## the user is being named, we must track this name for the audio start/stop events
-                    try: counters['usernames'][event.username()] = event.id()
-                    except KeyError as detail: print 'Handling exception: ', detail
+                    try: counters['users'][event.id()]['username'] = event.username()
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
                 elif event.type() == LogLineEvent.USER_LEAVE:
-                    ## the user is leaving, so we must decrement the audio/video counters
-                    ## if the audio/video streams are true, and delete the entry
-                    ## from the users dictionary in the datapoints
                     try:
-                        counters[LogLineEvent.AUDIO] -= 1 if counters['users'][event.id()]['audio'] else 0
                         counters[LogLineEvent.VIDEO] -= 1 if counters['users'][event.id()]['video'] else 0
-                        ## remove the username from the usernames dictionary
-                        candidates = [k for k, v in counters['usernames'].iteritems() if v == event.id()]
-                        ## if there are two users with the same username, after the first one leaves
-                        ## the candidates will be empty
-                        if len(candidates) > 0:
-                            del counters['usernames'][candidates[0]]
+                        counters[LogLineEvent.AUDIO] -= 1 if counters['users'][event.id()]['audio'] else 0
                         del counters['users'][event.id()]
-                    except KeyError as detail: print 'Handling exception: ', detail
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
                 ## start/stop video
                 elif event.type() == LogLineEvent.VIDEO_START:
                     try: counters['users'][event.id()]['video'] = True
-                    except KeyError as detail: print 'Handling exception: ', detail
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
                 elif event.type() == LogLineEvent.VIDEO_STOP:
-                    try: counters['users'][event.id()]['video'] = False
-                    except KeyError as detail: print 'Handling exception: ', detail
+                    try:
+                        if counters['users'].has_key(event.id()):
+                            if not counters['users'][event.id()]['video']: continue
+                            counters['users'][event.id()]['video'] = False
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
                 ## start/stop audio
                 elif event.type() == LogLineEvent.AUDIO_ID:
                     ## we acquire the audio id for the user
-                    try: counters['audio_ids'][event.id()] = counters['usernames'][event.username()]
-                    except KeyError as detail: print 'Handling exception: ', detail
+                    try:
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['username'] == event.username() and not v['audio']]
+                        if len(candidates_id) > 0:
+                            counters['users'][candidates_id[0]]['audio_id'] = event.id()
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
                 elif event.type() == LogLineEvent.AUDIO_START:
                     try:
-                        user_id = counters['usernames'][event.username()]
-                        counters['users'][event.id()]['audio'] = True
-                    except KeyError as detail: print 'Handling exception: ', detail
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['username'] == event.username() and not v['audio']]
+                        if len(candidates_id) > 0:
+                            counters['users'][candidates_id[0]]['audio'] = True
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
                 elif event.type() == LogLineEvent.AUDIO_STOP:
                     try:
-                        user_id = counters['audio_ids'][event.id()]
-                        ## sometimes AUDIO_STOP comes after USER_LEAVE
-                        if counters['users'].has_key(user_id):
-                            counters['users'][event.id()]['audio'] = False
-                    except KeyError as detail: print 'Handling exception: ', detail
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['audio_id'] == event.id() and v['audio']]
+                        if len(candidates_id) > 0:
+                            if not counters['users'][candidates_id[0]]['audio']: continue
+                            counters['users'][candidates_id[0]]['audio'] = False
+                            counters['users'][candidates_id[0]]['audio_id'] = 0
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
                 
                 elif event.type() == LogLineEvent.SERVER_RESTARTED:
                     counters = dict(empty_value)
@@ -174,11 +182,15 @@ class StatTable:
                 if event.type() in [LogLineEvent.USER_NAME, LogLineEvent.AUDIO_ID, LogLineEvent.SERVER_RESTARTED]: continue
 
                 try: counters[event_type] += increments[event.type()]
-                except KeyError as detail: print 'Handling exception: ', detail
+                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
             self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': dict(counters), 'idx': datapoint_idx})
             curr_time += Constants.SECONDS_IN_MIN
-        print counters, '\n'
+
+            if len(events_handled) > 0:
+                print datetime.datetime.utcfromtimestamp(curr_time).ctime()
+                print events_handled
+                print counters, '\n'
 
     def __aggregate__(self):
 
@@ -223,7 +235,7 @@ class StatTable:
         """
         Note: we assume events is sorted by timestamp
         """
-        print events
+#        print events
 
         if len(events) > 0:
             if len(self.__data__['daily']['datapoints']) == 0:
