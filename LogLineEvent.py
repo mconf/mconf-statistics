@@ -51,9 +51,12 @@ def parse_audio_stop(line, regex_match):
     return result
  
 def parse(filename, events=None):
-    f = open(filename, 'r')
-    lines = f.readlines()
-    f.close()
+    try:
+        f = open(filename, 'r')
+        lines = f.readlines()
+        f.close()
+    except:
+        lines = []
 
     if events is None:
         events = []
