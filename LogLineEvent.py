@@ -1,6 +1,6 @@
 import re
 import dateutil.parser
-import time
+import calendar
 
 def parse_user_join(line, regex_match):
     result = LogLineEvent(line)
@@ -62,8 +62,13 @@ def parse_audio_id(line, regex_match):
 def parse_audio_stop(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.AUDIO_STOP
-    result.__id__ = regex_match.group("room_id")
+    result.__id__ = regex_match.group("audio_id")
     return result
+    
+def parse_server_restarted(line, regex_match):
+    result = LogLineEvent(line)
+    result.__type__ = LogLineEvent.SERVER_RESTARTED
+    return result    
  
 def parse(filename, events=None):
     try:
@@ -98,6 +103,7 @@ class LogLineEvent:
         VIDEO_STOP
         ROOM_CREATE
         ROOM_DESTROY
+        SERVER_RESTARTED
 
     __timestamp__ contains a timestamp that identifies the event in time, and __id__
     contains an identifier for the user or room that originated the event.
@@ -114,7 +120,8 @@ class LogLineEvent:
         re.compile(".*DEBUG o.b.conference.RoomsManager - Change participant status (?P<user_id>.*) - hasStream \[false\]") : parse_video_stop,
         re.compile(".*DEBUG o.b.w.red5.voice.ClientManager - Participant (?P<user_name>.*)joining room (?P<room_id>.*)") : parse_audio_start,
         re.compile(".*DEBUG o.b.w.voice.internal.RoomManager - Joined \[(?P<audio_id>.*),(?P<user_name>.*),.*,.*\]*") : parse_audio_id,
-        re.compile(".*DEBUG o.b.w.red5.voice.ClientManager - Participant \[(?P<room_id>.*),.*\] leaving") : parse_audio_stop,
+        re.compile(".*DEBUG o.b.w.red5.voice.ClientManager - Participant \[(?P<audio_id>.*),.*\] leaving") : parse_audio_stop,
+        re.compile(".*DEBUG ROOT - Starting up context bigbluebutton") : parse_server_restarted
     }
 
     USERS        = 'users_count'
@@ -135,6 +142,9 @@ class LogLineEvent:
     ROOM_CREATE  = 'room_create'
     ROOM_DESTROY = 'room_destroy'
 
+    SERVER           = 'server'
+    SERVER_RESTARTED = 'server_restarted'
+
     EventTypeMap = {
         USER_JOIN: USERS,
         USER_LEAVE: USERS,
@@ -148,7 +158,9 @@ class LogLineEvent:
         VIDEO_STOP: VIDEO,
 
         ROOM_CREATE: ROOM,
-        ROOM_DESTROY: ROOM
+        ROOM_DESTROY: ROOM,
+        
+        SERVER_RESTARTED: SERVER
     }
 
     EventTypeNames = {
@@ -161,13 +173,14 @@ class LogLineEvent:
         VIDEO_START: 'VIDEO_START',
         VIDEO_STOP: 'VIDEO_STOP',
         ROOM_CREATE: 'ROOM_CREATE',
-        ROOM_DESTROY: 'ROOM_DESTROY'
+        ROOM_DESTROY: 'ROOM_DESTROY',
+        SERVER_RESTARTED: 'SERVER_RESTARTED'
     }
 
     def __init__(self, line):
         tokens = line.split(" ",2)
         datetime = " ".join(tokens[0:2]).replace(',','.')
-        self.__timestamp__ = time.mktime(dateutil.parser.parse(datetime).timetuple())
+        self.__timestamp__ = calendar.timegm(dateutil.parser.parse(datetime).timetuple())
 
     def __str__(self):
         return LogLineEvent.EventTypeNames[self.__type__]

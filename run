@@ -1,0 +1,3 @@
+#!/bin/bash
+
+~/mconf-statistics/main.py /usr/share/red5/log/bigbluebutton.log ~/mconf-statistics/data.log | tee -a ~/mconf-statistics/debug.log
