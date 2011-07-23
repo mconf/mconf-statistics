@@ -157,11 +157,12 @@ class StatTable:
             curr_time += Constants.SECONDS_IN_MIN
 
     def __aggregate__(self):
+
         for key in ['weekly', 'monthly']:
             key_tail = 0
             if len(self.__data__[key]['datapoints']) != 0:
                 key_tail = self.__data__[key]['datapoints'][-1]['idx']
-
+            
             daily_head = self.__data__['daily']['datapoints'][0]['idx']
 
             ## new events contains all daily events not captured in the weekly summary yet
@@ -179,12 +180,11 @@ class StatTable:
                 ## extract the value for each metric
                 counter = dict([(x, 0.0) for x in frame[0]['value'].keys()])
 
+                ## it will keep the maximum value for each metric
                 for datapoint in frame:
                     for metric in [LogLineEvent.USERS, LogLineEvent.AUDIO, LogLineEvent.VIDEO, LogLineEvent.ROOM]:
-                        counter[metric] += datapoint['value'][metric]
-
-                for metric in [LogLineEvent.USERS, LogLineEvent.AUDIO, LogLineEvent.VIDEO, LogLineEvent.ROOM]:
-                    counter[metric] /= float(len(frame))
+                        if counter[metric] < datapoint['value'][metric]:
+                            counter[metric] = datapoint['value'][metric] 
 
                 ## the timestamp for the value will be the one from the last daily event
                 curr_time = float(frame[-1]['timestamp'])
@@ -200,18 +200,22 @@ class StatTable:
         Note: we assume events is sorted by timestamp
         """
         print events
-        if len(self.__data__['daily']['datapoints']) == 0:
-            # no data yet, so we start scanning dates from
-            # the start of the events list
-            print "Initial logging"
-            self.__append__(events)
-        else:
-            # if we already have some data in the file, we
-            # start scanning from the last timestamp in the file
-            latest = self.__data__['daily']['datapoints'][-1]
-            print "Appending to log"
-            self.__append__(events, latest)
 
-        self.__aggregate__()
+        if len(events) > 0:
+            if len(self.__data__['daily']['datapoints']) == 0:
+                # no data yet, so we start scanning dates from
+                # the start of the events list
+                print "Initial logging"
+                self.__append__(events)
+            else:
+                # if we already have some data in the file, we
+                # start scanning from the last timestamp in the file
+                latest = self.__data__['daily']['datapoints'][-1]
+                print "Appending to log"
+                self.__append__(events, latest)
+
+        if len(self.__data__['daily']['datapoints']) > 0:
+            self.__aggregate__()
+
         self.__slideWindow__()
         self.__writeFile__()
