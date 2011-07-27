@@ -1,5 +1,6 @@
 import sys, os
-from LogLineEvent import parse
+from LogLineEvent import *
+from StatTable import StatTable
 
 if len(sys.argv) < 2:
     print "usage: " + sys.argv[0] + " [logfile]"
@@ -10,10 +11,7 @@ events = []
 
 parse(sys.argv[1], events)
 
-## updates the daily table
-
-## updates the weekly table
-
-## updates the monthly table
-
-print [event.timestamp() for event in events]
+statTable = StatTable({'daily': './daily.log', 'weekly': './weekly.log','monthly': './monthly.log'},
+                      (LogLineEvent.LOG_LINE_EVENT_USER_JOIN,
+                       LogLineEvent.LOG_LINE_EVENT_USER_LEAVE))
+statTable.update(events)
