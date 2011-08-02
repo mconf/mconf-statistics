@@ -26,6 +26,11 @@ class StatTable:
 
     def __init__(self, filenames, types):
         self.__filenames__ = filenames
+        ## first thing we do is create the log files if they don't exist
+        for filename in self.__filenames__.values():
+            cmd = 'touch ' + filename
+            os.system(cmd)
+
         self.__types__ = types
         self.__datapoints__ = {
             'daily': [],
@@ -92,20 +97,57 @@ class StatTable:
         lines = [str(x[0]) + ' ' + str(x[1]) + ' ' + str(x[2]) + '\n' for x in self.__datapoints__['daily']]
         f.writelines(lines)
         
-    def __aggregate__(self, events):
-        """
-        Given the new events, aggregate data into the weekly and monthly files
-        """
-        for key in ['weekly', 'monthly']:
-            f = open(self.__filenames__[key], 'a+')
-            if os.stat(self.__filenames__[key])[6] == 0:
-                ## the file does not exist, so we go through all events
-                
-                pass
-            else:
-                ## the file already exists, so we only append stuff
-                pass
+    def __aggregate__(self):
+        def head(f):
+            result = int(list(f.readlines())[0].strip().split()[2])
+            f.seek(0)
+            return result
 
+        def tail(f):
+            result = int(list(f.readlines())[-1].strip().split()[2])
+            f.seek(0)
+            return result
+
+        for key in ['weekly', 'monthly']:
+            key_tail = 0
+            if os.stat(self.__filenames__[key])[6] != 0:
+                ## we already have some data for the weekly pass
+                f = open(self.__filenames__[key])
+                key_tail = tail(f)
+                f.close()
+
+            daily_file = open(self.__filenames__['daily'], 'r')
+            daily_head = head(daily_file)
+
+            ## new events contains all daily events not captured in the weekly summary yet
+            new_events = list(daily_file.readlines())[key_tail - daily_head:]
+
+            frame_size = StatTable.STAT_AGGREGATION_SIZES[key]
+            n_frames = len(new_events) / frame_size
+            for frame_idx in range(n_frames):
+                ## turn the strings into component tuples
+                frame = list(x.strip().split() for x in new_events[frame_idx*frame_size: (frame_idx+1)*frame_size])
+
+                ## last frame is incomplete; let's ignore it for now
+                if len(frame) != frame_size: break
+
+                ## extract just the value
+                val = sum(list(float(x[1]) for x in frame)) / len(frame)
+
+                ## the timestamp for the value will be the one from the last daily event
+                curr_time = float(frame[-1][0])
+
+                ## the index for the value will be the one from the last daily event, also
+                datapoint_idx = int(frame[-1][2])
+
+                ## add to our datapoints
+                self.__datapoints__[key].append((curr_time, val, datapoint_idx))
+
+            ## now write the new data to the file
+            lines = [str(x[0]) + ' ' + str(x[1]) + ' ' + str(x[2]) + '\n' for x in self.__datapoints__[key]]
+            f = file(self.__filenames__[key], 'a+')
+            f.writelines(lines)        
+            f.close()
 
     def update(self, events):
         """
@@ -125,4 +167,5 @@ class StatTable:
                                   latest['idx'] + 1)
 
         f.close()
+        self.__aggregate__()
         self.__slideWindow__()
