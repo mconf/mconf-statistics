@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 import sys, os
 from LogLineEvent import *
 from StatTable import StatTable
