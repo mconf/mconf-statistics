@@ -26,6 +26,30 @@ def parse_room_destroy(line, regex_match):
     result.__id__ = regex_match.groups("room_id")[0]
     return result
 
+def parse_video_start(line, regex_match):
+    result = LogLineEvent(line)
+    result.__type__ = LogLineEvent.LOG_LINE_EVENT_VIDEO_START
+    result.__id__ = regex_match.groups("user_id")[0]
+    return result
+
+def parse_video_stop(line, regex_match):
+    result = LogLineEvent(line)
+    result.__type__ = LogLineEvent.LOG_LINE_EVENT_VIDEO_STOP
+    result.__id__ = regex_match.groups("user_id")[0]
+    return result
+
+def parse_audio_start(line, regex_match):
+    result = LogLineEvent(line)
+    result.__type__ = LogLineEvent.LOG_LINE_EVENT_AUDIO_START
+    result.__id__ = regex_match.groups("room_id")[0]
+    return result
+
+def parse_audio_stop(line, regex_match):
+    result = LogLineEvent(line)
+    result.__type__ = LogLineEvent.LOG_LINE_EVENT_AUDIO_STOP
+    result.__id__ = regex_match.groups("room_id")[0]
+    return result
+ 
 def parse(filename, events=None):
     f = open(filename, 'r')
     lines = f.readlines()
@@ -61,13 +85,16 @@ class LogLineEvent:
     contains an identifier for the user or room that originated the event.
     """
     ## each of these regular expressions handles one specific event
-    global parse_user_join, parse_user_leave
     regexes = {
         re.compile(".*\[clientid=(?P<user_id>.*)\] connected.*") : parse_user_join,
         ### YES! bigbluebutton cannot spell - jackasses
         re.compile(".*\[clientid=(?P<user_id>.*)\] disconnnected.*") : parse_user_leave,
         re.compile(".*Adding room (?P<room_id>.*)") : parse_room_create,
         re.compile(".*Remove room (?P<room_id>.*)") : parse_room_destroy,
+        re.compile(".*Change participant status (?P<user_id>.*) - hasStream \[true\]") : parse_video_start,
+        re.compile(".*Change participant status (?P<user_id>.*) - hasStream \[false\]") : parse_video_stop,
+        re.compile(".*Participant .*joining room (?P<room_id>.*)") : parse_audio_start,
+        re.compile(".*Participant \[.*,(?P<room_id>.*)\] leaving") : parse_audio_stop,
     }
 
     LOG_LINE_EVENT_USERS        = 'users'
