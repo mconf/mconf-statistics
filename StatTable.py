@@ -25,38 +25,32 @@ class StatTable:
         'monthly': 30
         }
 
-    def __init__(self, filenames):
-        self.__filenames__ = filenames
-        ## first thing we do is create the log files if they don't exist
-        for filename in self.__filenames__.values():
-            cmd = 'touch ' + filename
-            os.system(cmd)
+    def __init__(self, filename):
+        self.__filename__ = filename
 
-        self.__datapoints__ = {
-            'daily': [],
-            'weekly': [],
-            'monthly': [],
-            }
+        cmd = 'touch ' + self.__filename__
+        os.system(cmd)
 
-    def __writeFile__(self, filename, datapoints):
+        self.__data__ = self.__readFile__()
+
+    def __writeFile__(self):
         # writes the data as a JSON-encoded dict
-        f = open(filename, 'w')
+        f = open(self.__filename__, 'w')
 
-        # this is the fundamental JSON object that is written to the file
-        json_obj = {
-            'datapoints': datapoints
-        }
-
-        filestring = json.dumps(json_obj) + '\n'
+        filestring = json.dumps(self.__data__) + '\n'
         f.write(filestring)
         f.close()
 
-    def __readFile__(self, filename):
+    def __readFile__(self):
         # reads a JSON-encoded object from file
-        f = open(filename, 'r')
+        f = open(self.__filename__, 'r')
 
         # default object for empty files
-        obj = {'datapoints': []}
+        obj = {
+            'daily'  : {'datapoints': []},
+            'weekly' : {'datapoints': []},
+            'monthly': {'datapoints': []}
+        }
 
         try:
             obj = json.loads(f.read())
@@ -76,12 +70,11 @@ class StatTable:
         to maintain the max allowable size for each file
         """
         for key in ['daily', 'weekly', 'monthly']:
-            data = self.__readFile__(self.__filenames__[key])
-            if len(data['datapoints']) > StatTable.STAT_TABLE_SIZES[key]:
-                data['datapoints'] = data['datapoints'][len(data['datapoints']) - StatTable.STAT_TABLE_SIZES[key]:]
-            self.__writeFile__(self.__filenames__[key], data['datapoints'])
+            if len(self.__data__[key]['datapoints']) > StatTable.STAT_TABLE_SIZES[key]:
+                self.__data__[key]['datapoints'] =\
+                    self.__data__[key]['datapoints'][len(self.__data__[key]['datapoints']) - StatTable.STAT_TABLE_SIZES[key]:]
             
-    def __appendToFile__(self, filename, events, curr_time, datapoint_idx):
+    def __append__(self, events, curr_time, datapoint_idx):
         final_time = time.time()
         events_idx = 0
 
@@ -115,28 +108,21 @@ class StatTable:
                     counters[event_type] += increments[events[events_idx].type()]
                     events_idx += 1
 
-            self.__datapoints__['daily'].append({'timestamp': curr_time, 'value': counters, 'idx': datapoint_idx})
+            self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': counters, 'idx': datapoint_idx})
 
             datapoint_idx += 1
             curr_time += Constants.SECONDS_IN_MIN
 
-        ## now write the new data to the file
-        self.__writeFile__(filename, self.__datapoints__['daily'])
-
     def __aggregate__(self):
         for key in ['weekly', 'monthly']:
             key_tail = 0
+            if len(self.__data__[key]['datapoints']) != 0:
+                key_tail = self.__data__[key]['datapoints'][-1]['idx']
 
-            data = self.__readFile__(self.__filenames__[key])
-
-            if len(data['datapoints']) != 0:
-                key_tail = data['datapoints'][-1]['idx']
-
-            daily_data = self.__readFile__(self.__filenames__['daily'])
-            daily_head = daily_data['datapoints'][0]['idx']
+            daily_head = self.__data__['daily']['datapoints'][0]['idx']
 
             ## new events contains all daily events not captured in the weekly summary yet
-            new_events = list(daily_data['datapoints'][key_tail - daily_head:])
+            new_events = list(self.__data__['daily']['datapoints'][key_tail - daily_head:])
 
             frame_size = StatTable.STAT_AGGREGATION_SIZES[key]
             n_frames = len(new_events) / frame_size
@@ -163,32 +149,23 @@ class StatTable:
                 datapoint_idx = int(frame[-1]['idx'])
 
                 ## add to our datapoints
-                self.__datapoints__[key].append({'timestamp': curr_time, 'value': counter, 'idx': datapoint_idx})
-
-            ## now write the new data to the file
-            self.__writeFile__(self.__filenames__[key], self.__datapoints__[key])
+                self.__data__[key]['datapoints'].append({'timestamp': curr_time, 'value': counter, 'idx': datapoint_idx})
 
     def update(self, events):
         """
         Note: we assume events is sorted by timestamp
         """
-        ### the file can be empty, but must exist
-        data = self.__readFile__(self.__filenames__['daily'])
 
-        if len(data['datapoints']) == 0:
+        if len(self.__data__['daily']['datapoints']) == 0:
             # no data yet, so we start scanning dates from
             # the start of the events list
-            self.__appendToFile__(self.__filenames__['daily'], events, events[0].timestamp(), 0)
+            self.__append__(events, events[0].timestamp(), 0)
         else:
             # if we already have some data in the file, we
             # start scanning from the last timestamp in the file
-
-            # first, we read all the existing data to self.__datapoints__
-            self.__datapoints__['daily'] = data['datapoints']
-
-            latest = data['datapoints'][-1]
-            self.__appendToFile__(self.__filenames__['daily'], events, latest['timestamp'] + Constants.SECONDS_IN_MIN,
-                                  latest['idx'] + 1)
+            latest = self.__data__['daily']['datapoints'][-1]
+            self.__append__(events, latest['timestamp'] + Constants.SECONDS_IN_MIN, latest['idx'] + 1)
 
         self.__aggregate__()
         self.__slideWindow__()
+        self.__writeFile__();
