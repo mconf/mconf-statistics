@@ -70,21 +70,21 @@ class LogLineEvent:
         re.compile(".*Remove room (?P<room_id>.*)") : parse_room_destroy,
     }
 
-    LOG_LINE_EVENT_USERS        = 0
-    LOG_LINE_EVENT_USER_JOIN    = 1
-    LOG_LINE_EVENT_USER_LEAVE   = 2
+    LOG_LINE_EVENT_USERS        = 'users'
+    LOG_LINE_EVENT_USER_JOIN    = 'user_join'
+    LOG_LINE_EVENT_USER_LEAVE   = 'user_leave'
 
-    LOG_LINE_EVENT_AUDIO        = 3
-    LOG_LINE_EVENT_AUDIO_START  = 4
-    LOG_LINE_EVENT_AUDIO_STOP   = 5
+    LOG_LINE_EVENT_AUDIO        = 'audio'
+    LOG_LINE_EVENT_AUDIO_START  = 'audio_start'
+    LOG_LINE_EVENT_AUDIO_STOP   = 'audio_stop'
 
-    LOG_LINE_EVENT_VIDEO        = 6
-    LOG_LINE_EVENT_VIDEO_START  = 7
-    LOG_LINE_EVENT_VIDEO_STOP   = 8
+    LOG_LINE_EVENT_VIDEO        = 'video'
+    LOG_LINE_EVENT_VIDEO_START  = 'video_start'
+    LOG_LINE_EVENT_VIDEO_STOP   = 'video_stop'
     
-    LOG_LINE_EVENT_ROOM         = 9
-    LOG_LINE_EVENT_ROOM_CREATE  = 10
-    LOG_LINE_EVENT_ROOM_DESTROY = 11
+    LOG_LINE_EVENT_ROOM         = 'room'
+    LOG_LINE_EVENT_ROOM_CREATE  = 'room_create'
+    LOG_LINE_EVENT_ROOM_DESTROY = 'room_destroy'
 
     EventTypeMap = {
         LOG_LINE_EVENT_USER_JOIN: LOG_LINE_EVENT_USERS,
