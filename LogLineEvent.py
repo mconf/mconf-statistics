@@ -100,10 +100,26 @@ class LogLineEvent:
         LOG_LINE_EVENT_ROOM_DESTROY: LOG_LINE_EVENT_ROOM
     }
 
+    EventTypeNames = {
+        LOG_LINE_EVENT_USER_JOIN: 'USER_JOIN',
+        LOG_LINE_EVENT_USER_LEAVE: 'USER_LEAVE',
+        LOG_LINE_EVENT_AUDIO_START: 'AUDIO_START',
+        LOG_LINE_EVENT_AUDIO_STOP: 'AUDIO_STOP',
+        LOG_LINE_EVENT_VIDEO_START: 'VIDEO_START',
+        LOG_LINE_EVENT_VIDEO_STOP: 'VIDEO_STOP',
+        LOG_LINE_EVENT_ROOM_CREATE: 'ROOM_CREATE',
+        LOG_LINE_EVENT_ROOM_DESTROY: 'ROOM_DESTROY'
+    }
     def __init__(self, line):
         tokens = line.split(" ",2)
         datetime = " ".join(tokens[0:2]).replace(',','.')
         self.__timestamp__ = time.mktime(dateutil.parser.parse(datetime).timetuple())
+
+    def __str__(self):
+        return LogLineEvent.EventTypeNames[self.__type__]
+
+    def __repr__(self):
+        return self.__str__()
 
     def type(self):
         return self.__type__
