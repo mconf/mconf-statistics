@@ -9,8 +9,10 @@ app = web.application(urls, globals())
 
 class MConfStatisticsWebService:
     def GET(self, window):
-        if not window:
-            window = 'monthly'
+        i = web.input(window='monthly', callback='(function(obj){})')
+        window = i.window
+        callback = i.callback
+        web.header('Content-Type', 'application/x-javascript')
 
         obj = json.loads(file(sys.argv[2]).read())[window]
 
@@ -22,7 +24,9 @@ class MConfStatisticsWebService:
             for datapoint in obj['datapoints']:
                 output[key].append([datapoint['timestamp'], datapoint['value'][key]])
 
-        return json.dumps(output)
+        # this is kinda bad, but it's what we need to implement
+        # jsonp, otherwise it wouldn't work
+        return callback + '(' + json.dumps(output) + ')'
 
 if __name__ == "__main__":
     app.run()
