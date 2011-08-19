@@ -74,7 +74,13 @@ class StatTable:
                 self.__data__[key]['datapoints'] =\
                     self.__data__[key]['datapoints'][len(self.__data__[key]['datapoints']) - StatTable.STAT_TABLE_SIZES[key]:]
             
-    def __append__(self, events, curr_time, datapoint_idx):
+    def __append__(self, events, latest_datapoint=None):
+        curr_time = events[0].timestamp()
+        datapoint_idx = 0
+        if latest_datapoint:
+            curr_time = latest_datapoint['timestamp'] + Constants.SECONDS_IN_MIN
+            datapoint_idx = latest_datapoint['idx'] + 1
+
         final_time = time.time()
         events_idx = 0
 
@@ -108,7 +114,7 @@ class StatTable:
                     counters[event_type] += increments[events[events_idx].type()]
                     events_idx += 1
 
-            self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': counters, 'idx': datapoint_idx})
+            self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': dict(counters), 'idx': datapoint_idx})
 
             datapoint_idx += 1
             curr_time += Constants.SECONDS_IN_MIN
@@ -159,12 +165,12 @@ class StatTable:
         if len(self.__data__['daily']['datapoints']) == 0:
             # no data yet, so we start scanning dates from
             # the start of the events list
-            self.__append__(events, events[0].timestamp(), 0)
+            self.__append__(events)
         else:
             # if we already have some data in the file, we
             # start scanning from the last timestamp in the file
             latest = self.__data__['daily']['datapoints'][-1]
-            self.__append__(events, latest['timestamp'] + Constants.SECONDS_IN_MIN, latest['idx'] + 1)
+            self.__append__(events, latest)
 
         self.__aggregate__()
         self.__slideWindow__()
