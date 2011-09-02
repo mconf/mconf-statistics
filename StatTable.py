@@ -9,7 +9,7 @@ class StatTable:
     """
     StatTable is the class that interfaces with the files containing the stats
     for important bigbluebutton events. The main method is update(events), which loads
-    the current table from file (a text file or SQL) and adds the events that haven't been
+    the current table from file (a json-encoded file) and adds the events that haven't been
     accounted for yet, doing proper aggregation.
     """
 
@@ -77,12 +77,6 @@ class StatTable:
     def __append__(self, events, latest_datapoint=None):
         curr_time = events[0].timestamp()
         datapoint_idx = 0
-        if latest_datapoint:
-            curr_time = latest_datapoint['timestamp'] + Constants.SECONDS_IN_MIN
-            datapoint_idx = latest_datapoint['idx'] + 1
-
-        final_time = time.time()
-        events_idx = 0
 
         counters = {
             LogLineEvent.LOG_LINE_EVENT_USERS: 0,
@@ -90,6 +84,20 @@ class StatTable:
             LogLineEvent.LOG_LINE_EVENT_VIDEO: 0,
             LogLineEvent.LOG_LINE_EVENT_ROOM: 0
         }
+
+        if latest_datapoint:
+            curr_time = latest_datapoint['timestamp'] + Constants.SECONDS_IN_MIN
+            datapoint_idx = latest_datapoint['idx'] + 1
+            counters = {
+                LogLineEvent.LOG_LINE_EVENT_USERS: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_USERS],
+                LogLineEvent.LOG_LINE_EVENT_AUDIO: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_AUDIO],
+                LogLineEvent.LOG_LINE_EVENT_VIDEO: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_VIDEO],
+                LogLineEvent.LOG_LINE_EVENT_ROOM: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_ROOM]
+            }
+
+
+        final_time = time.time()
+        events_idx = 0
 
         increments = {
             LogLineEvent.LOG_LINE_EVENT_USER_JOIN: 1,
@@ -174,4 +182,4 @@ class StatTable:
 
         self.__aggregate__()
         self.__slideWindow__()
-        self.__writeFile__();
+        self.__writeFile__()

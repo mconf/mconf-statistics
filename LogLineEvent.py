@@ -87,7 +87,7 @@ class LogLineEvent:
     ## each of these regular expressions handles one specific event
     regexes = {
         re.compile(".*INFO  o.b.c.BigBlueButtonApplication - \[clientid=(?P<user_id>.*)\] connected.*") : parse_user_join,
-        ### YES! bigbluebutton cannot spell - jackasses
+        ### YES! bigbluebutton cannot spell
         re.compile(".*INFO  o.b.c.BigBlueButtonApplication - \[clientid=(?P<user_id>.*)\] disconnnected.*") : parse_user_leave,
         re.compile(".*INFO  o.b.c.s.p.ParticipantsApplication - Creating room (?P<room_id>.*)") : parse_room_create,
         re.compile(".*INFO  o.b.c.s.p.ParticipantsApplication - Destroying room (?P<room_id>.*)") : parse_room_destroy,
