@@ -95,7 +95,6 @@ class StatTable:
                 LogLineEvent.LOG_LINE_EVENT_ROOM: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_ROOM]
             }
 
-
         final_time = time.time()
         events_idx = 0
 
