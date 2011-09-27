@@ -146,7 +146,11 @@ class StatTable:
                     try: counters['users'][event.id()]['audio'] = False
                     except KeyError: pass                        
 
-                try: counters[event_type] += increments[events[events_idx].type()]
+                
+                ## we skip some of the control events
+                if event.type() in [LogLineEvent.USER_NAME, LogLineEvent.AUDIO_ID]: continue
+
+                try: counters[event_type] += increments[event.type()]
                 except KeyError: pass
 
             self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': dict(counters), 'idx': datapoint_idx})
@@ -176,9 +180,10 @@ class StatTable:
                 counter = dict([(x, 0.0) for x in frame[0]['value'].keys()])
 
                 for datapoint in frame:
-                    for metric in datapoint['value'].keys():
+                    for metric in [LogLineEvent.USERS, LogLineEvent.AUDIO, LogLineEvent.VIDEO, LogLineEvent.ROOM]:
                         counter[metric] += datapoint['value'][metric]
-                for metric in counter.keys():
+
+                for metric in [LogLineEvent.USERS, LogLineEvent.AUDIO, LogLineEvent.VIDEO, LogLineEvent.ROOM]:
                     counter[metric] /= float(len(frame))
 
                 ## the timestamp for the value will be the one from the last daily event
