@@ -82,7 +82,10 @@ class StatTable:
             LogLineEvent.LOG_LINE_EVENT_USERS: 0,
             LogLineEvent.LOG_LINE_EVENT_AUDIO: 0,
             LogLineEvent.LOG_LINE_EVENT_VIDEO: 0,
-            LogLineEvent.LOG_LINE_EVENT_ROOM: 0
+            LogLineEvent.LOG_LINE_EVENT_ROOM: 0,
+            'users': {},
+            'usernames': {},
+            'audio_ids': {},
         }
 
         if latest_datapoint:
@@ -92,7 +95,10 @@ class StatTable:
                 LogLineEvent.LOG_LINE_EVENT_USERS: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_USERS],
                 LogLineEvent.LOG_LINE_EVENT_AUDIO: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_AUDIO],
                 LogLineEvent.LOG_LINE_EVENT_VIDEO: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_VIDEO],
-                LogLineEvent.LOG_LINE_EVENT_ROOM: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_ROOM]
+                LogLineEvent.LOG_LINE_EVENT_ROOM: latest_datapoint['value'][LogLineEvent.LOG_LINE_EVENT_ROOM],
+                'users': dict(latest_datapoint['value']['users']),
+                'usernames': dict(latest_datapoint['value']['usernames']),
+                'audio_ids': dict(latest_datapoint['value']['audio_ids']),
             }
 
         final_time = time.time()
@@ -117,8 +123,54 @@ class StatTable:
                 ## we're still within the existing events, so we check
                 ## them to update the counter
                 while events_idx < len(events) and events[events_idx].timestamp() < curr_time:
-                    event_type = LogLineEvent.EventTypeMap[events[events_idx].type()]
-                    counters[event_type] += increments[events[events_idx].type()]
+                    curr_event = events[events_idx]
+                    event_type = LogLineEvent.EventTypeMap[curr_event.type()]
+
+                    ## specific event handling
+                    if curr_event.type() == LogLineEvent.LOG_LINE_EVENT_USER_JOIN:
+                        ## the user is joining, so we add him/her to the persisent list of users
+                        counters['users'][curr_event.id()] = { 'audio': False, 'video': False }
+                    
+                    elif curr_event.type() == LogLineEvent.LOG_LINE_EVENT_USER_NAME:
+                        ## the user is being named, we must track this name for the audio start/stop events
+                        counters['usernames'][curr_event.username()] = curr_event.id()
+
+                    elif curr_event.type() == LogLineEvent.LOG_LINE_EVENT_USER_LEAVE:
+                        ## the user is leaving, so we must decrement the audio/video counters
+                        ## if the audio/video streams are true, and delete the entry
+                        ## from the users dictionary in the datapoints
+                        if counters['users'][curr_event.id()]['audio']:
+                            counters[LogLineEvent.LOG_LINE_EVENT_AUDIO] -= 1
+                        if counters['users'][curr_event.id()]['video']:
+                            counters[LogLineEvent.LOG_LINE_EVENT_VIDEO] -= 1
+                        del counters['users'][curr_event.id()]
+
+                    ## start/stop video
+                    elif curr_event.type() == LogLineEvent.LOG_LINE_EVENT_VIDEO_START:
+                        try: counters['users'][curr_event.id()]['video'] = True
+                        except KeyError: pass
+                    elif curr_event.type() == LogLineEvent.LOG_LINE_EVENT_VIDEO_STOP:
+                        try: counters['users'][curr_event.id()]['video'] = False
+                        except KeyError: pass
+
+                    ## start/stop audio
+                    elif curr_event.type() == LogLineEvent.LOG_LINE_EVENT_AUDIO_ID:
+                        ## we acquire the audio id for the user
+                        counters['audio_ids'][curr_event.id()] = counters['usernames'][curr_event.username()]
+
+                    elif curr_event.type() == LogLineEvent.LOG_LINE_EVENT_AUDIO_START:
+                        user_id = counters['usernames'][curr_event.username()]
+                        try: counters['users'][curr_event.id()]['audio'] = True
+                        except KeyError: pass
+
+                    elif curr_event.type() == LogLineEvent.LOG_LINE_EVENT_AUDIO_STOP:
+                        user_id = counters['audio_ids'][curr_event.id()]
+                        try: counters['users'][curr_event.id()]['audio'] = False
+                        except KeyError: pass                        
+
+                    try: counters[event_type] += increments[events[events_idx].type()]
+                    except KeyError: pass
+
                     events_idx += 1
 
             self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': dict(counters), 'idx': datapoint_idx})
