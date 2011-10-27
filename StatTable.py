@@ -130,6 +130,7 @@ class StatTable:
 
                 elif event.type() == LogLineEvent.USER_LEAVE:
                     try:
+                        if not counters['users'].has_key(event.id()): continue
                         counters[LogLineEvent.VIDEO] -= 1 if counters['users'][event.id()]['video'] else 0
                         counters[LogLineEvent.AUDIO] -= 1 if counters['users'][event.id()]['audio'] else 0
                         del counters['users'][event.id()]
@@ -247,7 +248,7 @@ class StatTable:
                 # if we already have some data in the file, we
                 # start scanning from the last timestamp in the file
                 latest = self.__data__['daily']['datapoints'][-1]
-                print "Appending to log"
+#                print "Appending to log"
                 self.__append__(events, latest)
 
         if len(self.__data__['daily']['datapoints']) > 0:
