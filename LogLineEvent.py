@@ -82,16 +82,16 @@ def parse(filename, events=None):
         events = []
 
     ## it will log every line that interests us
-    logfile = open('eventlines.log', 'w')
+#    logfile = open('eventlines.log', 'w')
     
     for line in lines:
         for regex in LogLineEvent.regexes:
             match = regex.match(line)
             if match: 
                 events.append(LogLineEvent.regexes[regex](line, match))
-                logfile.write(line)
+#                logfile.write(line)
     
-    logfile.close()            
+#    logfile.close()            
     return events
 
 class LogLineEvent:
