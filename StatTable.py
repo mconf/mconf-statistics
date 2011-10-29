@@ -177,15 +177,16 @@ class StatTable:
             self.__data__['daily']['datapoints'].append({'timestamp': event.timestamp(), 'value': dict(counters), 'idx': datapoint_idx})
             datapoint_idx += 1;
 
-        print datetime.datetime.utcfromtimestamp(calendar.timegm(datetime.datetime.today().timetuple())).ctime()
-        print events_handled
-        print counters, '\n'
-        
-        ## it will write into eventlines.log all the valuable lines of the bigbluebutton log file
-        logfile = open('eventlines.log', 'a')
-        for event in events_handled:
-            logfile.write(event.line())
-        logfile.close()
+        if len(events_handled) > 0:
+            print datetime.datetime.utcfromtimestamp(calendar.timegm(datetime.datetime.today().timetuple())).ctime()
+            print events_handled
+            print counters, '\n'
+            
+            ## it will write into eventlines.log all the valuable lines of the bigbluebutton log file
+            logfile = open('eventlines.log', 'a')
+            for event in events_handled:
+                logfile.write(event.line())
+            logfile.close()
 
     def __aggregate__(self):
 
