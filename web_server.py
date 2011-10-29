@@ -3,13 +3,10 @@
 import web
 import json
 import sys
-        
-urls = (
-    '/stats/(.*)', 'MConfStatisticsWebService'
-)
-app = web.application(urls, globals())
+import os
+from daemon import Daemon
 
-class MConfStatisticsWebService:
+class MconfStatisticsWebService:
     def GET(self, window):
         i = web.input(window='all', callback='(function(obj){})')
         window = i.window
@@ -35,5 +32,29 @@ class MConfStatisticsWebService:
         # jsonp, otherwise it wouldn't work
         return callback + '(' + json.dumps(output) + ')'
 
+class WSDaemon(Daemon):
+    def run(self):
+        urls = (
+            '/stats/(.*)', 'MconfStatisticsWebService'
+        )
+        app = web.application(urls, globals())
+        app.run();
+
 if __name__ == "__main__":
-    app.run()
+    daemon = WSDaemon('/tmp/statistics-server.pid')
+    if len(sys.argv) >= 2:
+        if 'start' == sys.argv[1] and len(sys.argv) >= 4: 
+            del sys.argv[1:2]
+            daemon.start()
+        elif 'stop' == sys.argv[1]:
+            daemon.stop()
+        elif 'restart' == sys.argv[1] and len(sys.argv) >= 4:
+            del sys.argv[1:2]
+            daemon.restart()
+        else:
+            print "Unknown command"
+            sys.exit(2)
+        sys.exit(0)
+    else:
+        print "usage: %s start|stop|restart" % sys.argv[0]
+        sys.exit(2)
