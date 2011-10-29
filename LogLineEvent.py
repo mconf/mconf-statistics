@@ -81,17 +81,12 @@ def parse(filename, events=None):
     if events is None:
         events = []
 
-    ## it will log every line that interests us
-#    logfile = open('eventlines.log', 'w')
-    
     for line in lines:
         for regex in LogLineEvent.regexes:
             match = regex.match(line)
             if match: 
                 events.append(LogLineEvent.regexes[regex](line, match))
-#                logfile.write(line)
-    
-#    logfile.close()            
+
     return events
 
 class LogLineEvent:
@@ -186,6 +181,7 @@ class LogLineEvent:
         tokens = line.split(" ",2)
         datetime = " ".join(tokens[0:2]).replace(',','.')
         self.__timestamp__ = calendar.timegm(dateutil.parser.parse(datetime).timetuple())
+        self.__line__ = line
 
     def __str__(self):
         return LogLineEvent.EventTypeNames[self.__type__]
@@ -204,3 +200,6 @@ class LogLineEvent:
 
     def username(self):
         return self.__username__
+
+    def line(self):
+        return self.__line__
