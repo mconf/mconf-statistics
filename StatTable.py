@@ -17,15 +17,17 @@ class StatTable:
     """
 
     STAT_TABLE_SIZES = {
-        'daily':   1440, # 1/min for 24h
-        'weekly':  1008, # 1/(10 min) for 7 days
-        'monthly': 1440  # 1/(30 min) for 30 days
+        'daily':    1440, # 1/min for 24h
+        'weekly':   1008, # 1/(10 min) for 7 days
+        'monthly':  1440, # 1/(30 min) for 30 days
+        'annually': 1460  # 1/(6 h) for 365 days
         }
 
     STAT_AGGREGATION_SIZES = {
         'daily': 1,
         'weekly': 10,
-        'monthly': 30
+        'monthly': 30,
+        'annually': 360
         }
 
     def __init__(self, filename):
@@ -52,7 +54,8 @@ class StatTable:
         obj = {
             'daily'  : {'datapoints': []},
             'weekly' : {'datapoints': []},
-            'monthly': {'datapoints': []}
+            'monthly': {'datapoints': []},
+            'annually': {'datapoints': []}
         }
 
         try:
@@ -70,15 +73,19 @@ class StatTable:
     def __slideWindow__(self):
         """
         reads the files and deletes excessive lines from the start,
-        to maintain the max allowable period (a month)
+        to maintain the max allowable period size for each file
         """
-        newest = self.__data__['daily']['datapoints'][-1]
-        idx = len(self.__data__['daily']['datapoints']) - 1
-        while idx >= 0:
-            if self.__data__['daily']['datapoints'][idx]['timestamp'] + Constants.SECONDS_IN_MONTH <= newest['timestamp']:
-                del self.__data__['daily']['datapoints'][:idx+1]
-                break
-            idx -= 1
+        for key in ['daily', 'weekly', 'monthly', 'annually']:
+            if len(self.__data__[key]['datapoints']) > StatTable.STAT_TABLE_SIZES[key]:
+                self.__data__[key]['datapoints'] =\
+                    self.__data__[key]['datapoints'][len(self.__data__[key]['datapoints']) - StatTable.STAT_TABLE_SIZES[key]:]
+#        newest = self.__data__['daily']['datapoints'][-1]
+#        idx = len(self.__data__['daily']['datapoints']) - 1
+#        while idx >= 0:
+#            if self.__data__['daily']['datapoints'][idx]['timestamp'] + Constants.SECONDS_IN_MONTH <= newest['timestamp']:
+#                del self.__data__['daily']['datapoints'][:idx+1]
+#                break
+#            idx -= 1
             
     def __append__(self, events, latest=None):
         empty_value = { LogLineEvent.USERS: 0, LogLineEvent.AUDIO: 0, LogLineEvent.VIDEO: 0, LogLineEvent.ROOM: 0,
@@ -87,110 +94,128 @@ class StatTable:
             latest = { 'timestamp': events[0].timestamp() - 1, 'idx': -1,
                 'value': dict(empty_value) }
         
+        curr_time = latest['timestamp'] + Constants.SECONDS_IN_MIN
         datapoint_idx = latest['idx'] + 1
         counters = dict(latest['value'])
 
+        final_time = calendar.timegm(datetime.datetime.today().timetuple())
+        events_idx = 0
+        
         increments = {
             LogLineEvent.USER_JOIN: 1, LogLineEvent.USER_LEAVE: -1, LogLineEvent.AUDIO_START: 1, LogLineEvent.AUDIO_STOP: -1,
             LogLineEvent.VIDEO_START: 1, LogLineEvent.VIDEO_STOP: -1, LogLineEvent.ROOM_CREATE: 1, LogLineEvent.ROOM_DESTROY: -1
         }
 
-        events_handled = []       
-        for event in events:
-            if event.timestamp() <= latest['timestamp']: continue # we saw this event already
-
-            events_handled.append(event)
-            ## this event is in this minute-window, and hasn't been processed yet
-            event_type = LogLineEvent.EventTypeMap[event.type()]
-
-            ## specific event handling
-            if event.type() == LogLineEvent.USER_JOIN:
-                ## the user is joining, so we add him/her to the persistent list of users
-                try: counters['users'][event.id()] = { 'audio': False, 'video': False, 'username': '', 'audio_id': 0 }
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+        
+        while curr_time < final_time:
+        
+            events_handled = []
+        
+            # take all events in the list whose timestamp is LESS than curr_time
+            # but MORE than latest.timestamp
+            while events_idx < len(events):
+                event = events[events_idx]
+                events_idx += 1
                 
-            elif event.type() == LogLineEvent.USER_NAME:
-                ## the user is being named, we must track this name for the audio start/stop events
-                try: counters['users'][event.id()]['username'] = event.username()
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                if event.timestamp() <= latest['timestamp']: continue # we saw this event already
+                if event.timestamp() >= curr_time:
+                    # this event is for the next minute
+                    events_idx -= 1
+                    break
+                
+                events_handled.append(event)
+                
+                event_type = LogLineEvent.EventTypeMap[event.type()]
 
-            elif event.type() == LogLineEvent.USER_LEAVE:
-                try:
-                    if not counters['users'].has_key(event.id()): continue
-                    counters[LogLineEvent.VIDEO] -= 1 if counters['users'][event.id()]['video'] else 0
-                    counters[LogLineEvent.AUDIO] -= 1 if counters['users'][event.id()]['audio'] else 0
-                    del counters['users'][event.id()]
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                ## specific event handling
+                if event.type() == LogLineEvent.USER_JOIN:
+                    ## the user is joining, so we add him/her to the persistent list of users
+                    try: counters['users'][event.id()] = { 'audio': False, 'video': False, 'username': '', 'audio_id': 0 }
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                    
+                elif event.type() == LogLineEvent.USER_NAME:
+                    ## the user is being named, we must track this name for the audio start/stop events
+                    try: counters['users'][event.id()]['username'] = event.username()
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
-            ## start/stop video
-            elif event.type() == LogLineEvent.VIDEO_START:
-                try:
-                    if counters['users'][event.id()]['video']: continue
-                    counters['users'][event.id()]['video'] = True
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
-            elif event.type() == LogLineEvent.VIDEO_STOP:
-                try:
-                    if counters['users'].has_key(event.id()):
-                        if not counters['users'][event.id()]['video']: continue
-                        counters['users'][event.id()]['video'] = False
-                    else: continue
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                elif event.type() == LogLineEvent.USER_LEAVE:
+                    try:
+                        if not counters['users'].has_key(event.id()): continue
+                        counters[LogLineEvent.VIDEO] -= 1 if counters['users'][event.id()]['video'] else 0
+                        counters[LogLineEvent.AUDIO] -= 1 if counters['users'][event.id()]['audio'] else 0
+                        del counters['users'][event.id()]
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
-            ## start/stop audio
-            elif event.type() == LogLineEvent.AUDIO_ID:
-                ## we acquire the audio id for the user
-                try:
-                    candidates_id = [k for k, v in counters['users'].iteritems() if v['username'] == event.username() and not v['audio'] and v['audio_id'] == 0]
-                    if len(candidates_id) > 0:
-                        counters['users'][candidates_id[0]]['audio_id'] = event.id()
-                    else: continue
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                ## start/stop video
+                elif event.type() == LogLineEvent.VIDEO_START:
+                    try:
+                        if counters['users'][event.id()]['video']: continue
+                        counters['users'][event.id()]['video'] = True
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                elif event.type() == LogLineEvent.VIDEO_STOP:
+                    try:
+                        if counters['users'].has_key(event.id()):
+                            if not counters['users'][event.id()]['video']: continue
+                            counters['users'][event.id()]['video'] = False
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
-            elif event.type() == LogLineEvent.AUDIO_START:
-                try:
-                    candidates_id = [k for k, v in counters['users'].iteritems() if v['username'] == event.username() and not v['audio'] and v['audio_id'] != 0]
-                    if len(candidates_id) > 0:
-                        counters['users'][candidates_id[0]]['audio'] = True
-                    else: continue
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                ## start/stop audio
+                elif event.type() == LogLineEvent.AUDIO_ID:
+                    ## we acquire the audio id for the user
+                    try:
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['username'] == event.username() and not v['audio'] and v['audio_id'] == 0]
+                        if len(candidates_id) > 0:
+                            counters['users'][candidates_id[0]]['audio_id'] = event.id()
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
-            elif event.type() == LogLineEvent.AUDIO_STOP:
-                try:
-                    candidates_id = [k for k, v in counters['users'].iteritems() if v['audio_id'] == event.id() and v['audio']]
-                    if len(candidates_id) > 0:
-                        counters['users'][candidates_id[0]]['audio'] = False
-                        counters['users'][candidates_id[0]]['audio_id'] = 0
-                    else: continue
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
-            
-            elif event.type() == LogLineEvent.SERVER_RESTARTED:
-                counters = dict(empty_value)
-                ## it's necessary because when I copy a dictionary, the subdictionary 
-                ## are references, and must be erased
-                counters['users'] = {}
-            
-            ## we skip some of the control events
-            if event.type() not in [LogLineEvent.USER_NAME, LogLineEvent.AUDIO_ID, LogLineEvent.SERVER_RESTARTED]:
-                try: counters[event_type] += increments[event.type()]
-                except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                elif event.type() == LogLineEvent.AUDIO_START:
+                    try:
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['username'] == event.username() and not v['audio'] and v['audio_id'] != 0]
+                        if len(candidates_id) > 0:
+                            counters['users'][candidates_id[0]]['audio'] = True
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
-            self.__data__['daily']['datapoints'].append({'timestamp': event.timestamp(), 'value': dict(counters), 'idx': datapoint_idx})
+                elif event.type() == LogLineEvent.AUDIO_STOP:
+                    try:
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['audio_id'] == event.id() and v['audio']]
+                        if len(candidates_id) > 0:
+                            counters['users'][candidates_id[0]]['audio'] = False
+                            counters['users'][candidates_id[0]]['audio_id'] = 0
+                        else: continue
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+                
+                elif event.type() == LogLineEvent.SERVER_RESTARTED:
+                    counters = dict(empty_value)
+                    ## it's necessary because when I copy a dictionary, the subdictionary 
+                    ## are references, and must be erased
+                    counters['users'] = {}
+                
+                ## we skip some of the control events
+                if event.type() not in [LogLineEvent.USER_NAME, LogLineEvent.AUDIO_ID, LogLineEvent.SERVER_RESTARTED]:
+                    try: counters[event_type] += increments[event.type()]
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
+
+            self.__data__['daily']['datapoints'].append({'timestamp': curr_time, 'value': dict(counters), 'idx': datapoint_idx})
+            curr_time += Constants.SECONDS_IN_MIN
             datapoint_idx += 1;
 
-        if len(events_handled) > 0:
-            print datetime.datetime.utcfromtimestamp(calendar.timegm(datetime.datetime.today().timetuple())).ctime()
-            print events_handled
-            print counters, '\n'
-            
-            ## it will write into eventlines.log all the valuable lines of the bigbluebutton log file
-            logfile = open('eventlines.log', 'a')
-            for event in events_handled:
-                logfile.write(event.line())
-            logfile.close()
+            if len(events_handled) > 0:
+                print datetime.datetime.utcfromtimestamp(calendar.timegm(datetime.datetime.today().timetuple())).ctime()
+                print events_handled
+                print counters, '\n'
+                
+                ## it will write into eventlines.log all the valuable lines of the bigbluebutton log file
+                logfile = open('eventlines.log', 'a')
+                for event in events_handled:
+                    logfile.write(event.line())
+                logfile.close()
 
     def __aggregate__(self):
 
-        for key in ['weekly', 'monthly']:
+        for key in ['weekly', 'monthly', 'annually']:
             key_tail = 0
             if len(self.__data__[key]['datapoints']) != 0:
                 key_tail = self.__data__[key]['datapoints'][-1]['idx']
@@ -245,8 +270,8 @@ class StatTable:
                 latest = self.__data__['daily']['datapoints'][-1]
                 self.__append__(events, latest)
 
-#        if len(self.__data__['daily']['datapoints']) > 0:
-#            self.__aggregate__()
+        if len(self.__data__['daily']['datapoints']) > 0:
+            self.__aggregate__()
 
         self.__slideWindow__()
         self.__writeFile__()
