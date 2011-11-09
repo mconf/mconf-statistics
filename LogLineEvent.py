@@ -5,64 +5,67 @@ import calendar
 def parse_user_join(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.USER_JOIN
-    result.__id__ = regex_match.group("user_id")
+    result.__user_id__ = regex_match.group("user_id")
     return result
 
 def parse_user_leave(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.USER_LEAVE
-    result.__id__ = regex_match.group("user_id")
+    result.__user_id__ = regex_match.group("user_id")
     return result
 
 def parse_user_name(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.USER_NAME
-    result.__id__ = regex_match.group('user_id')
+    result.__user_id__ = regex_match.group('user_id')
     result.__username__ = regex_match.group('user_name')
+    result.__room_id__ = regex_match.group('room_id')
     return result
 
 def parse_room_create(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.ROOM_CREATE
-    result.__id__ = regex_match.group("room_id")
+    ## unused
+    result.__room_id__ = regex_match.group("room_id")
     return result
 
 def parse_room_destroy(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.ROOM_DESTROY
-    result.__id__ = regex_match.group("room_id")
+    result.__room_id__ = regex_match.group("room_id")
     return result
 
 def parse_video_start(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.VIDEO_START
-    result.__id__ = regex_match.group("user_id")
+    result.__user_id__ = regex_match.group("user_id")
     return result
 
 def parse_video_stop(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.VIDEO_STOP
-    result.__id__ = regex_match.group("user_id")
+    result.__user_id__ = regex_match.group("user_id")
     return result
 
 def parse_audio_start(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.AUDIO_START
-    result.__id__ = regex_match.group("room_id")
+    ## unused
+    result.__room_id__ = regex_match.group("room_id")
     result.__username__ = regex_match.group("user_name")
     return result
 
 def parse_audio_id(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.AUDIO_ID
-    result.__id__ = regex_match.group('audio_id')
+    result.__audio_id__ = regex_match.group('audio_id')
     result.__username__ = regex_match.group('user_name')
     return result
 
 def parse_audio_stop(line, regex_match):
     result = LogLineEvent(line)
     result.__type__ = LogLineEvent.AUDIO_STOP
-    result.__id__ = regex_match.group("audio_id")
+    result.__audio_id__ = regex_match.group("audio_id")
     return result
     
 def parse_server_restarted(line, regex_match):
@@ -113,7 +116,7 @@ class LogLineEvent:
         re.compile(".*INFO  o.b.c.BigBlueButtonApplication - \[clientid=(?P<user_id>.*)\] connected.*") : parse_user_join,
         ### YES! bigbluebutton cannot spell
         re.compile(".*INFO  o.b.c.BigBlueButtonApplication - \[clientid=(?P<user_id>.*)\] disconnnected.*") : parse_user_leave,
-        re.compile(".*DEBUG o.b.c.BigBlueButtonApplication - User \[userid=(?P<user_id>.*),username=(?P<user_name>.*),role.*") : parse_user_name,
+        re.compile(".*DEBUG o.b.c.BigBlueButtonApplication - User \[userid=(?P<user_id>.*),username=(?P<user_name>.*),role.* connected to room \[(?P<room_id>.*)\]") : parse_user_name,
         re.compile(".*INFO  o.b.c.s.p.ParticipantsApplication - Creating room (?P<room_id>.*)") : parse_room_create,
         re.compile(".*INFO  o.b.c.s.p.ParticipantsApplication - Destroying room (?P<room_id>.*)") : parse_room_destroy,
         re.compile(".*DEBUG o.b.conference.RoomsManager - Change participant status (?P<user_id>.*) - hasStream \[true\]") : parse_video_start,
@@ -195,11 +198,17 @@ class LogLineEvent:
     def timestamp(self):
         return self.__timestamp__
 
-    def id(self):
-        return self.__id__
-
     def username(self):
         return self.__username__
+        
+    def room_id(self):
+        return self.__room_id__
+    
+    def user_id(self):
+        return self.__user_id__
+        
+    def audio_id(self):
+        return self.__audio_id__
 
     def line(self):
         return self.__line__

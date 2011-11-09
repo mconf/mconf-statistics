@@ -130,33 +130,35 @@ class StatTable:
                 ## specific event handling
                 if event.type() == LogLineEvent.USER_JOIN:
                     ## the user is joining, so we add him/her to the persistent list of users
-                    try: counters['users'][event.id()] = { 'audio': False, 'video': False, 'username': '', 'audio_id': 0 }
+                    try: counters['users'][event.user_id()] = { 'audio': False, 'video': False, 'username': '', 'audio_id': 0, 'room_id': '' }
                     except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
                     
                 elif event.type() == LogLineEvent.USER_NAME:
                     ## the user is being named, we must track this name for the audio start/stop events
-                    try: counters['users'][event.id()]['username'] = event.username()
+                    try: 
+                        counters['users'][event.user_id()]['username'] = event.username()
+                        counters['users'][event.user_id()]['room_id'] = event.room_id()
                     except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
                 elif event.type() == LogLineEvent.USER_LEAVE:
                     try:
-                        if not counters['users'].has_key(event.id()): continue
-                        counters[LogLineEvent.VIDEO] -= 1 if counters['users'][event.id()]['video'] else 0
-                        counters[LogLineEvent.AUDIO] -= 1 if counters['users'][event.id()]['audio'] else 0
-                        del counters['users'][event.id()]
+                        if not counters['users'].has_key(event.user_id()): continue
+                        counters[LogLineEvent.VIDEO] -= 1 if counters['users'][event.user_id()]['video'] else 0
+                        counters[LogLineEvent.AUDIO] -= 1 if counters['users'][event.user_id()]['audio'] else 0
+                        del counters['users'][event.user_id()]
                     except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
                 ## start/stop video
                 elif event.type() == LogLineEvent.VIDEO_START:
                     try:
-                        if counters['users'][event.id()]['video']: continue
-                        counters['users'][event.id()]['video'] = True
+                        if counters['users'][event.user_id()]['video']: continue
+                        counters['users'][event.user_id()]['video'] = True
                     except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
                 elif event.type() == LogLineEvent.VIDEO_STOP:
                     try:
-                        if counters['users'].has_key(event.id()):
-                            if not counters['users'][event.id()]['video']: continue
-                            counters['users'][event.id()]['video'] = False
+                        if counters['users'].has_key(event.user_id()):
+                            if not counters['users'][event.user_id()]['video']: continue
+                            counters['users'][event.user_id()]['video'] = False
                         else: continue
                     except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
@@ -166,7 +168,7 @@ class StatTable:
                     try:
                         candidates_id = [k for k, v in counters['users'].iteritems() if v['username'] == event.username() and not v['audio'] and v['audio_id'] == 0]
                         if len(candidates_id) > 0:
-                            counters['users'][candidates_id[0]]['audio_id'] = event.id()
+                            counters['users'][candidates_id[0]]['audio_id'] = event.audio_id()
                         else: continue
                     except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
 
@@ -180,7 +182,7 @@ class StatTable:
 
                 elif event.type() == LogLineEvent.AUDIO_STOP:
                     try:
-                        candidates_id = [k for k, v in counters['users'].iteritems() if v['audio_id'] == event.id() and v['audio']]
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['audio_id'] == event.audio_id() and v['audio']]
                         if len(candidates_id) > 0:
                             counters['users'][candidates_id[0]]['audio'] = False
                             counters['users'][candidates_id[0]]['audio_id'] = 0
@@ -192,6 +194,16 @@ class StatTable:
                     ## it's necessary because when I copy a dictionary, the subdictionary 
                     ## are references, and must be erased
                     counters['users'] = {}
+                    
+                elif event.type() == LogLineEvent.ROOM_DESTROY:
+                    try:
+                        candidates_id = [k for k, v in counters['users'].iteritems() if v['room_id'] == event.room_id()]
+                        for user_id in candidates_id:
+                            counters[LogLineEvent.VIDEO] -= 1 if counters['users'][user_id]['video'] else 0
+                            counters[LogLineEvent.AUDIO] -= 1 if counters['users'][user_id]['audio'] else 0
+                            counters[LogLineEvent.USERS] -= 1
+                            del counters['users'][user_id]
+                    except: print 'Handling exception on line %d' % (sys.exc_traceback.tb_lineno)
                 
                 ## we skip some of the control events
                 if event.type() not in [LogLineEvent.USER_NAME, LogLineEvent.AUDIO_ID, LogLineEvent.SERVER_RESTARTED]:
